@@ -22,12 +22,12 @@ typedef enum {
 
 typedef struct {
   lval_type_t type;
-  long        number;
+  double      number;
   lval_err_t  err;
 } lval_t;
 
 lval_t lval_err(lval_err_t err);
-lval_t lval_number(long number);
+lval_t lval_number(double number);
 char *lval_describe(lval_t lval);
 
 lval_t eval(mpc_ast_t *node);
@@ -91,7 +91,7 @@ lval_t eval(mpc_ast_t *node) {
   // Node is a number and cannot be reduced further
   if(strstr(node->tag, "number")) {
     errno = 0;
-    long number = strtol(node->contents, NULL, 10);
+    double number = strtod(node->contents, NULL);
     return errno == ERANGE
       ? lval_err(LVAL_ERR_BAD_NUMBER)
       : lval_number(number);
@@ -135,7 +135,7 @@ lval_t eval_op(char *op, lval_t a, lval_t b) {
   }
 
   if (strcmp(op, "%") == 0) {
-    return lval_number(a.number % b.number);
+    return lval_number(fmod(a.number, b.number));
   }
 
   if (strcmp(op, "^") == 0) {
@@ -200,7 +200,7 @@ int most_children(mpc_ast_t *node) {
   return most;
 }
 
-lval_t lval_number(long number) {
+lval_t lval_number(double number) {
   lval_t lval;
   lval.type = LVAL_TYPE_NUMBER;
   lval.number = number;
@@ -218,7 +218,7 @@ char *lval_describe(lval_t lval) {
   char *description = malloc(sizeof(char) * 100);
 
   if (lval.type == LVAL_TYPE_NUMBER) {
-    sprintf(description, "%li", lval.number);
+    sprintf(description, "%f", lval.number);
   } else {
     if (lval.err == LVAL_ERR_DIV_ZERO) {
       strcpy(description, "Error: Division By Zero!");
