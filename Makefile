@@ -1,2 +1,2 @@
 parsing: *c *.h
-	cc -std=c99 parsing.c mpc.c -o bin/parsing -ledit -lm
+	cc -std=c99 -Wall parsing.c mpc.c -o bin/parsing -ledit -lm
