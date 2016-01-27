@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -215,23 +217,23 @@ lval_t lval_err(lval_err_t err) {
 }
 
 char *lval_describe(lval_t lval) {
-  char *description = malloc(sizeof(char) * 100);
-
   if (lval.type == LVAL_TYPE_NUMBER) {
-    sprintf(description, "%f", lval.number);
-  } else {
-    if (lval.err == LVAL_ERR_DIV_ZERO) {
-      strcpy(description, "Error: Division By Zero!");
-    }
-
-    if (lval.err == LVAL_ERR_BAD_OP) {
-      strcpy(description, "Error: Invalid Operation!");
-    }
-
-    if (lval.err == LVAL_ERR_BAD_NUMBER) {
-      strcpy(description, "Error: Invalid Number!");
-    }
+    char *dest;
+    asprintf(&dest, "%f", lval.number);
+    return dest;
   }
 
-  return description;
+  if (lval.err == LVAL_ERR_DIV_ZERO) {
+    return strdup("Error: Division By Zero!");
+  }
+
+  if (lval.err == LVAL_ERR_BAD_OP) {
+    return strdup("Error: Invalid Operation!");
+  }
+
+  if (lval.err == LVAL_ERR_BAD_NUMBER) {
+    return strdup("Error: Invalid Number!");
+  }
+
+  return NULL;
 }
