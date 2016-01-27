@@ -79,6 +79,11 @@ long eval(mpc_ast_t *node) {
     i++;
   }
 
+  // Minus operator with only one operand should negate the number
+  if (strcmp(op, "-") == 0 && i == 3) {
+    val = 0 - val;
+  }
+
   return val;
 }
 
