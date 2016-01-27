@@ -8,8 +8,9 @@
 
 long eval(mpc_ast_t *node);
 long eval_op(char *op, long a, long b);
-long num_leaves(mpc_ast_t *node);
-long num_branches(mpc_ast_t *node);
+int num_leaves(mpc_ast_t *node);
+int num_branches(mpc_ast_t *node);
+int most_children(mpc_ast_t *node);
 
 int main(int argc, char **argv) {
   puts("BYOL Version 0.0.1");
@@ -37,9 +38,10 @@ int main(int argc, char **argv) {
     mpc_result_t result;
     if (mpc_parse("<stdin>", input, Program, &result)) {
       printf("Result: %li\n", eval(result.output));
-      printf("Leaves: %li, Branches: %li\n",
+      printf("Leaves: %d, Branches: %d, Most Children: %d\n",
           num_leaves(result.output),
-          num_branches(result.output));
+          num_branches(result.output),
+          most_children(result.output));
       mpc_ast_print(result.output);
       mpc_ast_delete(result.output);
     } else {
@@ -85,7 +87,7 @@ long eval_op(char *op, long a, long b) {
   return 0;
 }
 
-long num_leaves(mpc_ast_t *node) {
+int num_leaves(mpc_ast_t *node) {
   if (node->children_num == 0) {
     return 1;
   }
@@ -98,7 +100,7 @@ long num_leaves(mpc_ast_t *node) {
   return num;
 }
 
-long num_branches(mpc_ast_t *node) {
+int num_branches(mpc_ast_t *node) {
   if (node->children_num == 0) {
     return 0;
   }
@@ -109,4 +111,22 @@ long num_branches(mpc_ast_t *node) {
   }
 
   return num;
+}
+
+int most_children(mpc_ast_t *node) {
+  if (node->children_num == 0) {
+    return 0;
+  }
+
+  int most = node->children_num;
+
+  for (int i = 0; i < node->children_num; i++) {
+    int childMost = most_children(node->children[i]);
+
+    if (childMost > most) {
+      most = childMost;
+    }
+  }
+
+  return most;
 }
