@@ -24,8 +24,11 @@ typedef enum {
 
 typedef struct {
   lval_type_t type;
-  double      number;
-  lval_err_t  err;
+
+  union {
+    double     number;
+    lval_err_t err;
+  };
 } lval_t;
 
 lval_t lval_err(lval_err_t err);
