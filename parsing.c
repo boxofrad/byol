@@ -8,6 +8,8 @@
 
 long eval(mpc_ast_t *node);
 long eval_op(char *op, long a, long b);
+long num_leaves(mpc_ast_t *node);
+long num_branches(mpc_ast_t *node);
 
 int main(int argc, char **argv) {
   puts("BYOL Version 0.0.1");
@@ -34,8 +36,11 @@ int main(int argc, char **argv) {
 
     mpc_result_t result;
     if (mpc_parse("<stdin>", input, Program, &result)) {
-      long computedValue = eval(result.output);
-      printf("%li\n", computedValue);
+      printf("Result: %li\n", eval(result.output));
+      printf("Leaves: %li, Branches: %li\n",
+          num_leaves(result.output),
+          num_branches(result.output));
+      mpc_ast_print(result.output);
       mpc_ast_delete(result.output);
     } else {
       mpc_err_print(result.error);
@@ -78,4 +83,30 @@ long eval_op(char *op, long a, long b) {
   if (strcmp(op, "*") == 0) { return a * b; }
   if (strcmp(op, "/") == 0) { return a / b; }
   return 0;
+}
+
+long num_leaves(mpc_ast_t *node) {
+  if (node->children_num == 0) {
+    return 1;
+  }
+
+  int num = 0;
+  for (int i = 0; i < node->children_num; i++) {
+    num += num_leaves(node->children[i]);
+  }
+
+  return num;
+}
+
+long num_branches(mpc_ast_t *node) {
+  if (node->children_num == 0) {
+    return 0;
+  }
+
+  int num = 1;
+  for (int i = 0; i < node->children_num; i++) {
+    num += num_branches(node->children[i]);
+  }
+
+  return num;
 }
