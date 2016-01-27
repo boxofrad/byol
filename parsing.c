@@ -6,6 +6,9 @@
 
 #include "mpc.h"
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 long eval(mpc_ast_t *node);
 long eval_op(char *op, long a, long b);
 int num_leaves(mpc_ast_t *node);
@@ -22,11 +25,11 @@ int main(int argc, char **argv) {
   mpc_parser_t *Program = mpc_new("program");
 
   mpca_lang(MPCA_LANG_DEFAULT,
-      "                                                            \
-        number     : /-?[0-9]+(\\.[0-9]+)?/ ;                      \
-        operator   : '+' | '-' | '*' | '/' | '%' | '^' ;           \
-        expression : <number> | '(' <operator> <expression>+ ')' ; \
-        program    : /^/ <operator> <expression>+ /$/ ;            \
+      "                                                                      \
+        number     : /-?[0-9]+(\\.[0-9]+)?/ ;                                \
+        operator   : '+' | '-' | '*' | '/' | '%' | '^' | \"min\" | \"max\" ; \
+        expression : <number> | '(' <operator> <expression>+ ')' ;           \
+        program    : /^/ <operator> <expression>+ /$/ ;                      \
       ",
       Number, Operator, Expression, Program
   );
@@ -86,6 +89,8 @@ long eval_op(char *op, long a, long b) {
   if (strcmp(op, "/") == 0) { return a / b; }
   if (strcmp(op, "%") == 0) { return a % b; }
   if (strcmp(op, "^") == 0) { return pow(a, b); }
+  if (strcmp(op, "min") == 0) { return MIN(a, b); }
+  if (strcmp(op, "max") == 0) { return MAX(a, b); }
   return 0;
 }
 
@@ -123,11 +128,7 @@ int most_children(mpc_ast_t *node) {
   int most = node->children_num;
 
   for (int i = 0; i < node->children_num; i++) {
-    int childMost = most_children(node->children[i]);
-
-    if (childMost > most) {
-      most = childMost;
-    }
+    most = MAX(most, most_children(node->children[i]));
   }
 
   return most;
