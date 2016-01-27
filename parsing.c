@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   mpca_lang(MPCA_LANG_DEFAULT,
       "                                                            \
         number     : /-?[0-9]+(\\.[0-9]+)?/ ;                      \
-        operator   : '+' | '-' | '*' | '/' ;                       \
+        operator   : '+' | '-' | '*' | '/' | '%' ;                 \
         expression : <number> | '(' <operator> <expression>+ ')' ; \
         program    : /^/ <operator> <expression>+ /$/ ;            \
       ",
@@ -84,6 +84,7 @@ long eval_op(char *op, long a, long b) {
   if (strcmp(op, "-") == 0) { return a - b; }
   if (strcmp(op, "*") == 0) { return a * b; }
   if (strcmp(op, "/") == 0) { return a / b; }
+  if (strcmp(op, "%") == 0) { return a % b; }
   return 0;
 }
 
