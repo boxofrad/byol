@@ -9,8 +9,30 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-long eval(mpc_ast_t *node);
-long eval_op(char *op, long a, long b);
+typedef enum {
+  LVAL_TYPE_NUMBER,
+  LVAL_TYPE_ERROR
+} lval_type_t;
+
+typedef enum {
+  LVAL_ERR_DIV_ZERO,
+  LVAL_ERR_BAD_OP,
+  LVAL_ERR_BAD_NUMBER
+} lval_err_t;
+
+typedef struct {
+  lval_type_t type;
+  long        number;
+  lval_err_t  err;
+} lval_t;
+
+lval_t lval_err(lval_err_t err);
+lval_t lval_number(long number);
+char *lval_describe(lval_t lval);
+
+lval_t eval(mpc_ast_t *node);
+lval_t eval_op(char *op, lval_t a, lval_t b);
+
 int num_leaves(mpc_ast_t *node);
 int num_branches(mpc_ast_t *node);
 int most_children(mpc_ast_t *node);
@@ -40,7 +62,12 @@ int main(int argc, char **argv) {
 
     mpc_result_t result;
     if (mpc_parse("<stdin>", input, Program, &result)) {
-      printf("Result: %li\n", eval(result.output));
+      lval_t computedResult = eval(result.output);
+
+      char *resultDescription = lval_describe(computedResult);
+      printf("Result: %s\n", resultDescription);
+      free(resultDescription);
+
       printf("Leaves: %d, Branches: %d, Most Children: %d\n",
           num_leaves(result.output),
           num_branches(result.output),
@@ -60,17 +87,21 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-long eval(mpc_ast_t *node) {
+lval_t eval(mpc_ast_t *node) {
   // Node is a number and cannot be reduced further
   if(strstr(node->tag, "number")) {
-    return atoi(node->contents);
+    errno = 0;
+    long number = strtol(node->contents, NULL, 10);
+    return errno == ERANGE
+      ? lval_err(LVAL_ERR_BAD_NUMBER)
+      : lval_number(number);
   }
 
   // Operator is the second child (after the opening paren)
   char *op = node->children[1]->contents;
 
   // Evaluate the first argument
-  long val = eval(node->children[2]);
+  lval_t val = eval(node->children[2]);
 
   // Apply the operator to the remaining arguments
   int i = 3;
@@ -81,22 +112,52 @@ long eval(mpc_ast_t *node) {
 
   // Minus operator with only one operand should negate the number
   if (strcmp(op, "-") == 0 && i == 3) {
-    val = 0 - val;
+    val = lval_number(0 - val.number);
   }
 
   return val;
 }
 
-long eval_op(char *op, long a, long b) {
-  if (strcmp(op, "+") == 0) { return a + b; }
-  if (strcmp(op, "-") == 0) { return a - b; }
-  if (strcmp(op, "*") == 0) { return a * b; }
-  if (strcmp(op, "/") == 0) { return a / b; }
-  if (strcmp(op, "%") == 0) { return a % b; }
-  if (strcmp(op, "^") == 0) { return pow(a, b); }
-  if (strcmp(op, "min") == 0) { return MIN(a, b); }
-  if (strcmp(op, "max") == 0) { return MAX(a, b); }
-  return 0;
+lval_t eval_op(char *op, lval_t a, lval_t b) {
+  if (a.type == LVAL_TYPE_ERROR) { return a; }
+  if (b.type == LVAL_TYPE_ERROR) { return b; }
+
+  if (strcmp(op, "+") == 0) {
+    return lval_number(a.number + b.number);
+  }
+
+  if (strcmp(op, "-") == 0) {
+    return lval_number(a.number - b.number);
+  }
+
+  if (strcmp(op, "*") == 0) {
+    return lval_number(a.number * b.number);
+  }
+
+  if (strcmp(op, "%") == 0) {
+    return lval_number(a.number % b.number);
+  }
+
+  if (strcmp(op, "^") == 0) {
+    return lval_number(pow(a.number, b.number));
+  }
+
+  if (strcmp(op, "min") == 0) {
+    return lval_number(MIN(a.number, b.number));
+  }
+
+  if (strcmp(op, "max") == 0) {
+    return lval_number(MAX(a.number, b.number));
+  }
+
+  if (strcmp(op, "/") == 0) {
+    // Prevent divide by zero
+    return b.number == 0
+      ? lval_err(LVAL_ERR_DIV_ZERO)
+      : lval_number(a.number / b.number);
+  }
+
+  return lval_err(LVAL_ERR_BAD_OP);
 }
 
 int num_leaves(mpc_ast_t *node) {
@@ -137,4 +198,40 @@ int most_children(mpc_ast_t *node) {
   }
 
   return most;
+}
+
+lval_t lval_number(long number) {
+  lval_t lval;
+  lval.type = LVAL_TYPE_NUMBER;
+  lval.number = number;
+  return lval;
+}
+
+lval_t lval_err(lval_err_t err) {
+  lval_t lval;
+  lval.type = LVAL_TYPE_ERROR;
+  lval.err = err;
+  return lval;
+}
+
+char *lval_describe(lval_t lval) {
+  char *description = malloc(sizeof(char) * 100);
+
+  if (lval.type == LVAL_TYPE_NUMBER) {
+    sprintf(description, "%li", lval.number);
+  } else {
+    if (lval.err == LVAL_ERR_DIV_ZERO) {
+      strcpy(description, "Error: Division By Zero!");
+    }
+
+    if (lval.err == LVAL_ERR_BAD_OP) {
+      strcpy(description, "Error: Invalid Operation!");
+    }
+
+    if (lval.err == LVAL_ERR_BAD_NUMBER) {
+      strcpy(description, "Error: Invalid Number!");
+    }
+  }
+
+  return description;
 }
