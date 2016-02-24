@@ -12,12 +12,25 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
+#define LASSERT(args, cond, err) \
+  if (!(cond)) { \
+    lval_del(args); \
+    return lval_err(err); \
+  }
+
 lval_t *ast_node_to_lval(mpc_ast_t *node);
 int is_valid_expr(mpc_ast_t *node);
 
 lval_t *lval_eval_sexpr(lval_t *val);
 lval_t *lval_eval();
+
+lval_t *builtin_func(lval_t *val, char *symbol);
 lval_t *builtin_op(lval_t *val, char *op);
+lval_t *builtin_head(lval_t *val);
+lval_t *builtin_tail(lval_t *val);
+lval_t *builtin_list(lval_t *val);
+lval_t *builtin_eval(lval_t *val);
+lval_t *builtin_join(lval_t *val);
 
 void lval_print(lval_t *val);
 void lval_expr_print(lval_t *val, char open, char close);
@@ -33,18 +46,21 @@ int main(int argc, char **argv) {
   mpc_parser_t *Number  = mpc_new("number");
   mpc_parser_t *Symbol  = mpc_new("symbol");
   mpc_parser_t *Sexpr   = mpc_new("sexpr");
+  mpc_parser_t *Qexpr   = mpc_new("qexpr");
   mpc_parser_t *Expr    = mpc_new("expr");
   mpc_parser_t *Program = mpc_new("program");
 
   mpca_lang(MPCA_LANG_DEFAULT,
       "                                                                   \
         number  : /-?[0-9]+/ ;                                            \
-        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\" ;       \
+        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\"         \
+                | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" ;  \
         sexpr   : '(' <expr>* ')' ;                                       \
-        expr    : <number> | <symbol> | <sexpr> ;                         \
+        qexpr   : '{' <expr>* '}' ;                                       \
+        expr    : <number> | <symbol> | <sexpr> | <qexpr>;                \
         program : /^/ <expr>* /$/ ;                                       \
       ",
-      Number, Symbol, Sexpr, Expr, Program
+      Number, Symbol, Sexpr, Qexpr, Expr, Program
   );
 
   while (1) {
@@ -78,7 +94,7 @@ int main(int argc, char **argv) {
     free(input);
   }
 
-  mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Program);
+  mpc_cleanup(6, Number, Symbol, Sexpr, Qexpr, Expr, Program);
 
   return 0;
 }
@@ -134,8 +150,14 @@ lval_t *ast_node_to_lval(mpc_ast_t *node) {
     return lval_sym(node->contents);
   }
 
-  /* Anything else must be either the root node (>) or an S-Expression */
-  lval_t *val = lval_sexpr();
+  lval_t *val;
+
+  if (strstr(node->tag, "qexpr")) {
+    val = lval_qexpr();
+  } else {
+    /* Anything else must be either the root node (>) or an S-Expression */
+    val = lval_sexpr();
+  }
 
   /* Add the children */
   for (int i = 0; i < node->children_num; i++) {
@@ -165,6 +187,7 @@ void lval_print(lval_t *val) {
     case LVAL_ERR:   printf("Error: %s", val->err);  break;
     case LVAL_SYM:   printf("%s", val->sym);         break;
     case LVAL_SEXPR: lval_expr_print(val, '(', ')'); break;
+    case LVAL_QEXPR: lval_expr_print(val, '{', '}'); break;
   }
 }
 
@@ -212,7 +235,7 @@ lval_t *lval_eval_sexpr(lval_t *val) {
     return lval_err("S-Expression must begin with a symbol!");
   }
 
-  lval_t *result = builtin_op(val, first->sym);
+  lval_t *result = builtin_func(val, first->sym);
   lval_del(first);
   return result;
 }
@@ -224,6 +247,27 @@ lval_t *lval_eval(lval_t *val) {
   }
 
   return lval_eval_sexpr(val);
+}
+
+lval_t *builtin_func(lval_t *val, char *symbol) {
+  if (strcmp("list", symbol) == 0) { return builtin_list(val); }
+  if (strcmp("head", symbol) == 0) { return builtin_head(val); }
+  if (strcmp("tail", symbol) == 0) { return builtin_tail(val); }
+  if (strcmp("join", symbol) == 0) { return builtin_join(val); }
+  if (strcmp("eval", symbol) == 0) { return builtin_eval(val); }
+
+  if (strcmp("min", symbol) == 0 || strcmp("max", symbol) == 0) {
+    return builtin_op(val, symbol);
+  }
+
+  if (strstr("+-/*^", symbol)) {
+    return builtin_op(val, symbol);
+  }
+
+  lval_del(val);
+
+  /* TODO: this error message should say which function was unknown */
+  return lval_err("Unknown function!");
 }
 
 lval_t *builtin_op(lval_t *val, char *op) {
@@ -268,4 +312,62 @@ lval_t *builtin_op(lval_t *val, char *op) {
 
   lval_del(val);
   return computedVal;
+}
+
+lval_t *builtin_head(lval_t *val) {
+  LASSERT(val, val->count == 1,                  "Function 'head' accepts 1 argument");
+  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'head' only operates on Q-Expressions");
+  LASSERT(val, val->cell[0]->count != 0,         "Function 'head' cannot operate on an empty Q-Expression");
+
+  lval_t *qexpr = lval_take(val, 0);
+
+  /* Delete all but the first argument */
+  while (qexpr->count > 1) {
+    lval_del(lval_pop(qexpr, 1));
+  }
+
+  return qexpr;
+}
+
+lval_t *builtin_tail(lval_t *val) {
+  LASSERT(val, val->count == 1,                  "Function 'tail' accepts 1 argument");
+  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'tail' only operates on Q-Expressions");
+  LASSERT(val, val->cell[0]->count != 0,         "Function 'tail' cannot operate on an empty Q-Expression");
+
+  lval_t *qexpr = lval_take(val, 0);
+
+  /* Delete the first argument */
+  lval_del(lval_pop(qexpr, 0));
+
+  return qexpr;
+}
+
+/* TODO: should this only operate on S-Expessions? */
+lval_t *builtin_list(lval_t *val) {
+  val->type = LVAL_QEXPR;
+  return val;
+}
+
+lval_t *builtin_eval(lval_t *val) {
+  LASSERT(val, val->count == 1,                  "Function 'eval' accepts 1 argument");
+  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'eval' only operates on Q-Expressions");
+
+  lval_t *expr = lval_take(val, 0);
+  expr->type = LVAL_SEXPR;
+  return lval_eval(expr);
+}
+
+lval_t *builtin_join(lval_t *val) {
+  for (int i = 0; i < val->count; i++) {
+    /* TODO: this error message should say which argument was invalid */
+    LASSERT(val, val->cell[i]->type == LVAL_QEXPR, "Function 'join' only operates on Q-Expressions");
+  }
+
+  lval_t *qexpr = lval_pop(val, 0);
+  while (val->count > 0) {
+    qexpr = lval_join(qexpr, lval_pop(val, 0));
+  }
+
+  lval_del(val);
+  return qexpr;
 }

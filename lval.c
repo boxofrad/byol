@@ -34,6 +34,14 @@ lval_t *lval_sexpr() {
   return val;
 }
 
+lval_t *lval_qexpr() {
+  lval_t *val = malloc(sizeof(lval_t));
+  val->type = LVAL_QEXPR;
+  val->count = 0;
+  val->cell = NULL;
+  return val;
+}
+
 void lval_del(lval_t *val) {
   switch (val->type) {
     /* Number has nothing special to free */
@@ -43,8 +51,9 @@ void lval_del(lval_t *val) {
     case LVAL_ERR: free(val->err); break;
     case LVAL_SYM: free(val->sym); break;
 
-    /* S-Expressions have nested values we need to free */
+    /* S-Expressions and Q-Expressions have nested values we need to free */
     case LVAL_SEXPR:
+    case LVAL_QEXPR:
       for (int i = 0; i < val->count; i++) {
         lval_del(val->cell[i]);
       }
@@ -80,4 +89,14 @@ lval_t *lval_take(lval_t *val, int i) {
   lval_t *child = lval_pop(val, i);
   lval_del(val);
   return child;
+}
+
+lval_t *lval_join(lval_t *a, lval_t *b) {
+  /* Move all items from b -> a */
+  while (b->count > 0) {
+    lval_add(a, lval_pop(b, 0));
+  }
+
+  lval_del(b);
+  return a;
 }
