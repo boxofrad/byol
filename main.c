@@ -27,6 +27,7 @@ lval_t *builtin_list(lval_t *val);
 lval_t *builtin_eval(lval_t *val);
 lval_t *builtin_join(lval_t *val);
 lval_t *builtin_cons(lval_t *val);
+lval_t *builtin_len(lval_t *val);
 
 void lval_print(lval_t *val);
 void lval_expr_print(lval_t *val, char open, char close);
@@ -47,14 +48,14 @@ int main(int argc, char **argv) {
   mpc_parser_t *Program = mpc_new("program");
 
   mpca_lang(MPCA_LANG_DEFAULT,
-      "                                                                              \
-        number  : /-?[0-9]+/ ;                                                       \
-        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\"                    \
-                | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" | \"cons\" ;  \
-        sexpr   : '(' <expr>* ')' ;                                                  \
-        qexpr   : '{' <expr>* '}' ;                                                  \
-        expr    : <number> | <symbol> | <sexpr> | <qexpr>;                           \
-        program : /^/ <expr>* /$/ ;                                                  \
+      "                                                                                        \
+        number  : /-?[0-9]+/ ;                                                                 \
+        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\"                              \
+                | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" | \"cons\" | \"len\" ;  \
+        sexpr   : '(' <expr>* ')' ;                                                            \
+        qexpr   : '{' <expr>* '}' ;                                                            \
+        expr    : <number> | <symbol> | <sexpr> | <qexpr>;                                     \
+        program : /^/ <expr>* /$/ ;                                                            \
       ",
       Number, Symbol, Sexpr, Qexpr, Expr, Program
   );
@@ -252,6 +253,7 @@ lval_t *builtin_func(lval_t *val, char *symbol) {
   if (strcmp("join", symbol) == 0) { return builtin_join(val); }
   if (strcmp("eval", symbol) == 0) { return builtin_eval(val); }
   if (strcmp("cons", symbol) == 0) { return builtin_cons(val); }
+  if (strcmp("len", symbol) == 0)  { return builtin_len(val);  }
 
   if (strcmp("min", symbol) == 0 || strcmp("max", symbol) == 0) {
     return builtin_op(val, symbol);
@@ -378,4 +380,13 @@ lval_t *builtin_cons(lval_t *val) {
 
   /* Join the new list to the front of the first arg */
   return lval_join(qexpr, val->cell[0]);
+}
+
+lval_t *builtin_len(lval_t *val) {
+  LASSERT_NUM_ARGS(val, "len", 1);
+  LASSERT_ARG_TYPE(val, "len", 0, LVAL_QEXPR);
+
+  lval_t *len = lval_num(val->cell[0]->count);
+  lval_del(val);
+  return len;
 }
