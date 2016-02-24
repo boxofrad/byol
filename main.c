@@ -8,15 +8,10 @@
 
 #include "mpc.h"
 #include "lval.h"
+#include "assertions.h"
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-
-#define LASSERT(args, cond, err) \
-  if (!(cond)) { \
-    lval_del(args); \
-    return lval_err(err); \
-  }
 
 lval_t *ast_node_to_lval(mpc_ast_t *node);
 int is_valid_expr(mpc_ast_t *node);
@@ -315,9 +310,9 @@ lval_t *builtin_op(lval_t *val, char *op) {
 }
 
 lval_t *builtin_head(lval_t *val) {
-  LASSERT(val, val->count == 1,                  "Function 'head' accepts 1 argument");
-  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'head' only operates on Q-Expressions");
-  LASSERT(val, val->cell[0]->count != 0,         "Function 'head' cannot operate on an empty Q-Expression");
+  LASSERT_NUM_ARGS(val, "head", 1);
+  LASSERT_ARG_TYPE(val, "head", 0, LVAL_QEXPR);
+  LASSERT_NOT_EMPTY(val, "head", 0);
 
   lval_t *qexpr = lval_take(val, 0);
 
@@ -330,9 +325,9 @@ lval_t *builtin_head(lval_t *val) {
 }
 
 lval_t *builtin_tail(lval_t *val) {
-  LASSERT(val, val->count == 1,                  "Function 'tail' accepts 1 argument");
-  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'tail' only operates on Q-Expressions");
-  LASSERT(val, val->cell[0]->count != 0,         "Function 'tail' cannot operate on an empty Q-Expression");
+  LASSERT_NUM_ARGS(val, "tail", 1);
+  LASSERT_ARG_TYPE(val, "tail", 0, LVAL_QEXPR);
+  LASSERT_NOT_EMPTY(val, "tail", 0);
 
   lval_t *qexpr = lval_take(val, 0);
 
@@ -349,8 +344,8 @@ lval_t *builtin_list(lval_t *val) {
 }
 
 lval_t *builtin_eval(lval_t *val) {
-  LASSERT(val, val->count == 1,                  "Function 'eval' accepts 1 argument");
-  LASSERT(val, val->cell[0]->type == LVAL_QEXPR, "Function 'eval' only operates on Q-Expressions");
+  LASSERT_NUM_ARGS(val, "eval", 1);
+  LASSERT_ARG_TYPE(val, "eval", 0, LVAL_QEXPR);
 
   lval_t *expr = lval_take(val, 0);
   expr->type = LVAL_SEXPR;
@@ -359,8 +354,7 @@ lval_t *builtin_eval(lval_t *val) {
 
 lval_t *builtin_join(lval_t *val) {
   for (int i = 0; i < val->count; i++) {
-    /* TODO: this error message should say which argument was invalid */
-    LASSERT(val, val->cell[i]->type == LVAL_QEXPR, "Function 'join' only operates on Q-Expressions");
+    LASSERT_ARG_TYPE(val, "join", i, LVAL_QEXPR);
   }
 
   lval_t *qexpr = lval_pop(val, 0);

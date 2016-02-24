@@ -27,3 +27,5 @@ void lval_del(lval_t *val);
 lval_t *lval_take(lval_t *val, int i);
 lval_t *lval_pop(lval_t *val, int i);
 lval_t *lval_join(lval_t *a, lval_t *b);
+
+char *lval_type_desc(lval_type_t type);

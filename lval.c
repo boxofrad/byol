@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "lval.h"
 
@@ -99,4 +100,16 @@ lval_t *lval_join(lval_t *a, lval_t *b) {
 
   lval_del(b);
   return a;
+}
+
+char *lval_type_desc(lval_type_t type) {
+  switch (type) {
+    case LVAL_ERR:   return strdup("Error");
+    case LVAL_NUM:   return strdup("Number");
+    case LVAL_SYM:   return strdup("Symbol");
+    case LVAL_SEXPR: return strdup("S-Expression");
+    case LVAL_QEXPR: return strdup("Q-Expression");
+  }
+
+  return NULL;
 }
