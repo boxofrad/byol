@@ -26,6 +26,7 @@ lval_t *builtin_tail(lval_t *val);
 lval_t *builtin_list(lval_t *val);
 lval_t *builtin_eval(lval_t *val);
 lval_t *builtin_join(lval_t *val);
+lval_t *builtin_cons(lval_t *val);
 
 void lval_print(lval_t *val);
 void lval_expr_print(lval_t *val, char open, char close);
@@ -46,14 +47,14 @@ int main(int argc, char **argv) {
   mpc_parser_t *Program = mpc_new("program");
 
   mpca_lang(MPCA_LANG_DEFAULT,
-      "                                                                   \
-        number  : /-?[0-9]+/ ;                                            \
-        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\"         \
-                | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" ;  \
-        sexpr   : '(' <expr>* ')' ;                                       \
-        qexpr   : '{' <expr>* '}' ;                                       \
-        expr    : <number> | <symbol> | <sexpr> | <qexpr>;                \
-        program : /^/ <expr>* /$/ ;                                       \
+      "                                                                              \
+        number  : /-?[0-9]+/ ;                                                       \
+        symbol  : '+' | '-' | '*' | '/' | '^' | \"min\" | \"max\"                    \
+                | \"list\" | \"head\" | \"tail\" | \"join\" | \"eval\" | \"cons\" ;  \
+        sexpr   : '(' <expr>* ')' ;                                                  \
+        qexpr   : '{' <expr>* '}' ;                                                  \
+        expr    : <number> | <symbol> | <sexpr> | <qexpr>;                           \
+        program : /^/ <expr>* /$/ ;                                                  \
       ",
       Number, Symbol, Sexpr, Qexpr, Expr, Program
   );
@@ -250,6 +251,7 @@ lval_t *builtin_func(lval_t *val, char *symbol) {
   if (strcmp("tail", symbol) == 0) { return builtin_tail(val); }
   if (strcmp("join", symbol) == 0) { return builtin_join(val); }
   if (strcmp("eval", symbol) == 0) { return builtin_eval(val); }
+  if (strcmp("cons", symbol) == 0) { return builtin_cons(val); }
 
   if (strcmp("min", symbol) == 0 || strcmp("max", symbol) == 0) {
     return builtin_op(val, symbol);
@@ -364,4 +366,16 @@ lval_t *builtin_join(lval_t *val) {
 
   lval_del(val);
   return qexpr;
+}
+
+lval_t *builtin_cons(lval_t *val) {
+  LASSERT_NUM_ARGS(val, "cons", 2);
+  LASSERT_ARG_TYPE(val, "cons", 0, LVAL_QEXPR);
+
+  /* Create a list containing the second arg */
+  lval_t *qexpr = lval_qexpr();
+  lval_add(qexpr, val->cell[1]);
+
+  /* Join the new list to the front of the first arg */
+  return lval_join(qexpr, val->cell[0]);
 }
