@@ -38,6 +38,7 @@ lval_t *builtin_join(lenv_t *env, lval_t *val);
 lval_t *builtin_cons(lenv_t *env, lval_t *val);
 lval_t *builtin_len(lenv_t *env, lval_t *val);
 lval_t *builtin_init(lenv_t *env, lval_t *val);
+lval_t *builtin_def(lenv_t *env, lval_t *val);
 
 void lval_print(lval_t *val);
 void lval_expr_print(lval_t *val, char open, char close);
@@ -445,6 +446,30 @@ lval_t *builtin_init(lenv_t *env, lval_t *val) {
   return qexpr;
 }
 
+lval_t *builtin_def(lenv_t *env, lval_t *val) {
+  LASSERT_ARG_TYPE(val, "def", 0, LVAL_QEXPR);
+  LASSERT_NOT_EMPTY(val, "def", 0);
+
+  /* Ensure all items in first argument are symbols */
+  lval_t *symbols = val->cell[0];
+  for (int i = 0; i < symbols->count; i++) {
+    LASSERT(val, symbols->cell[i]->type == LVAL_SYM,
+        "Function 'def' cannot define non-symbol");
+  }
+
+  /* Check number of symbols matches number of values */
+  LASSERT(val, symbols->count == (val->count - 1),
+      "Number of values must match number of symbols in 'def'");
+
+  /* Store the values in the environment */
+  for (int i = 0; i < symbols->count; i++) {
+    lenv_put(env, symbols->cell[i], val->cell[i + 1]);
+  }
+
+  lval_del(val);
+  return lval_sexpr();
+}
+
 void lenv_add_builtin(lenv_t *env, char *name, lbuiltin fun) {
   lval_t *key = lval_sym(name);
   lval_t *val = lval_fun(fun);
@@ -464,4 +489,6 @@ void lenv_add_builtins(lenv_t *env) {
   lenv_add_builtin(env, "-", builtin_sub);
   lenv_add_builtin(env, "*", builtin_mul);
   lenv_add_builtin(env, "/", builtin_div);
+
+  lenv_add_builtin(env, "def", builtin_def);
 }

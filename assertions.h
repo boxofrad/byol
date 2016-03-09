@@ -1,3 +1,6 @@
+#define LASSERT(args, cond, err) \
+  if (!(cond)) { lval_del(args); return lval_err(err); }
+
 #define LASSERT_NUM_ARGS(args, func, exp) \
   if ((args)->count != exp) { \
     char *msg; \
