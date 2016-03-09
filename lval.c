@@ -27,10 +27,10 @@ lval_t *lval_sym(char *sym) {
   return val;
 }
 
-lval_t *lval_fun(lbuiltin fun) {
+lval_t *lval_fun(lbuiltin builtin) {
   lval_t *val = malloc(sizeof(lval_t));
   val->type = LVAL_FUN;
-  val->fun = fun;
+  val->builtin = builtin;
   return val;
 }
 
@@ -119,7 +119,7 @@ lval_t *lval_copy(lval_t *old) {
   switch (old->type) {
     /* Copy numbers and functions as-is */
     case LVAL_NUM: new->num = old->num; break;
-    case LVAL_FUN: new->fun = old->fun; break;
+    case LVAL_FUN: new->builtin = old->builtin; break;
 
     /* Copy error and symbol strings */
     case LVAL_ERR: new->err = strdup(old->err); break;

@@ -20,7 +20,7 @@ struct lval {
   long num;
   char *err;
   char *sym;
-  lbuiltin fun;
+  lbuiltin builtin;
 
   int count;
   struct lval **cell; /* TODO: Use a linked-list */

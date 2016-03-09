@@ -252,7 +252,7 @@ lval_t *lval_eval_sexpr(lenv_t *env, lval_t *val) {
     return lval_err("first element is not a function");
   }
 
-  lval_t *result = first->fun(env, val);
+  lval_t *result = first->builtin(env, val);
   lval_del(first);
   return result;
 }
